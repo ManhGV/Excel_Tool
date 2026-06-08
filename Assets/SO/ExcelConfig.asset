@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c5d19dd04436af4a9bbfb4906f05d30, type: 3}
+  m_Name: ExcelConfig
+  m_EditorClassIdentifier: 
+  deploymentId: AKfycbw1fD7RSyMrpaapBHJV43OqVPBLZQn-RMdHueMWPQ1QfP2QWFWSw2Cz9efDwYog_GWDjQ
+  deploymentUrl: https://script.google.com/macros/s/AKfycbw1fD7RSyMrpaapBHJV43OqVPBLZQn-RMdHueMWPQ1QfP2QWFWSw2Cz9efDwYog_GWDjQ/exec
+  spreadsheetId: 1MdS28yqxIcqjSvjijYN-4UoLv23fMkQd
