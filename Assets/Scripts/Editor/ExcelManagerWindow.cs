@@ -20,6 +20,12 @@ public class ExcelManagerWindow : EditorWindow
     private int bulkFillColumnIndex = -1;
     private string bulkFillValue = "";
     private bool showBulkFillPanel = false;
+    
+    // Group by recipient state
+    private bool showGroupByRecipient = false;
+    private Vector2 groupScrollPosition;
+    private Dictionary<string, List<int>> recipientGroups = new Dictionary<string, List<int>>();
+    private Dictionary<string, bool> expandedGroups = new Dictionary<string, bool>();
 
     [MenuItem("Tools/Excel Manager")]
     public static void ShowWindow()
@@ -89,6 +95,27 @@ public class ExcelManagerWindow : EditorWindow
             SortRowsWithoutPhoneToBottom();
         }
 
+        if (recipientGroups.Count > 0 && GUILayout.Button("Auto Fill Phone & Address", GUILayout.Height(30)))
+        {
+            AutoFillPhoneAndAddress();
+        }
+
+        if (GUILayout.Button("Group by Recipient", GUILayout.Height(30)))
+        {
+            GroupByRecipient();
+            showGroupByRecipient = !showGroupByRecipient;
+        }
+
+        if (recipientGroups.Count > 0 && GUILayout.Button("Auto Generate Order Code", GUILayout.Height(30)))
+        {
+            AutoGenerateOrderCodes();
+        }
+
+        if (GUILayout.Button("Sort by Order Code", GUILayout.Height(30)))
+        {
+            SortByOrderCode();
+        }
+
         GUI.enabled = true;
 
         EditorGUILayout.EndHorizontal();
@@ -156,6 +183,9 @@ public class ExcelManagerWindow : EditorWindow
             GUILayout.Label($"Data ({gridData.Count - 1} rows, {visibleColumnNames.Count} columns)", EditorStyles.boldLabel);
             DrawGrid();
         }
+
+        // Group by recipient section
+        DrawGroupByRecipient();
     }
 
     private void DrawGrid()
@@ -190,6 +220,65 @@ public class ExcelManagerWindow : EditorWindow
             }
 
             EditorGUILayout.EndHorizontal();
+        }
+
+        EditorGUILayout.EndScrollView();
+    }
+
+    private void DrawGroupByRecipient()
+    {
+        if (!showGroupByRecipient || recipientGroups.Count == 0)
+            return;
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("Grouped by Recipient Name", EditorStyles.boldLabel);
+        EditorGUILayout.HelpBox($"Total groups: {recipientGroups.Count}", MessageType.Info);
+
+        groupScrollPosition = EditorGUILayout.BeginScrollView(groupScrollPosition, GUILayout.Height(200));
+
+        var sortedKeys = new List<string>(recipientGroups.Keys);
+        sortedKeys.Sort();
+
+        foreach (var recipientName in sortedKeys)
+        {
+            var rowIndices = recipientGroups[recipientName];
+            bool isExpanded = expandedGroups.ContainsKey(recipientName) && expandedGroups[recipientName];
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button(isExpanded ? "▼" : "▶", GUILayout.Width(20)))
+            {
+                if (!expandedGroups.ContainsKey(recipientName))
+                    expandedGroups[recipientName] = false;
+                expandedGroups[recipientName] = !expandedGroups[recipientName];
+            }
+
+            EditorGUILayout.LabelField($"{recipientName} ({rowIndices.Count})", EditorStyles.boldLabel);
+            EditorGUILayout.EndHorizontal();
+
+            if (isExpanded)
+            {
+                EditorGUI.indentLevel++;
+                foreach (var rowIndex in rowIndices)
+                {
+                    EditorGUILayout.BeginHorizontal();
+                    EditorGUILayout.LabelField($"Row {rowIndex}", GUILayout.Width(60));
+                    
+                    // Display some key info
+                    if (rowIndex < gridData.Count)
+                    {
+                        var row = gridData[rowIndex];
+                        int maDonHangIdx = visibleColumnNames.IndexOf("MaDonHang");
+                        int soDienThoaiIdx = visibleColumnNames.IndexOf("SoDienThoai");
+                        
+                        string maDonHang = maDonHangIdx >= 0 && maDonHangIdx < row.Count ? row[maDonHangIdx] : "";
+                        string soDienThoai = soDienThoaiIdx >= 0 && soDienThoaiIdx < row.Count ? row[soDienThoaiIdx] : "";
+                        
+                        EditorGUILayout.LabelField($"ID: {maDonHang} | Phone: {soDienThoai}", GUILayout.ExpandWidth(true));
+                    }
+                    EditorGUILayout.EndHorizontal();
+                }
+                EditorGUI.indentLevel--;
+            }
         }
 
         EditorGUILayout.EndScrollView();
@@ -534,6 +623,240 @@ public class ExcelManagerWindow : EditorWindow
         gridData.AddRange(rowsWithoutAddress);
 
         statusMessage = $"Sorted: {rowsWithBoth.Count} with both | {rowsWithAddressOnly.Count} address only | {rowsWithoutAddress.Count} no address";
+        Repaint();
+    }
+
+    private void GroupByRecipient()
+    {
+        if (gridData.Count < 2)
+        {
+            statusMessage = "Load data first";
+            return;
+        }
+
+        int recipientColumnIndex = visibleColumnNames.IndexOf("TenNguoiNhan");
+        if (recipientColumnIndex < 0)
+        {
+            statusMessage = "Column 'Tên người nhận' not found in visible columns";
+            return;
+        }
+
+        recipientGroups.Clear();
+        expandedGroups.Clear();
+
+        for (int i = 1; i < gridData.Count; i++)
+        {
+            var row = gridData[i];
+            string recipientName = recipientColumnIndex < row.Count ? row[recipientColumnIndex] : "";
+
+            if (string.IsNullOrWhiteSpace(recipientName))
+                recipientName = "[Empty]"; // Group empty names together
+
+            if (!recipientGroups.ContainsKey(recipientName))
+                recipientGroups[recipientName] = new List<int>();
+
+            recipientGroups[recipientName].Add(i);
+        }
+
+        statusMessage = $"Grouped {gridData.Count - 1} rows into {recipientGroups.Count} recipient groups";
+        Repaint();
+    }
+
+    private void AutoGenerateOrderCodes()
+    {
+        if (recipientGroups.Count == 0)
+        {
+            statusMessage = "Group by Recipient first";
+            return;
+        }
+
+        int maDonHangColumnIndex = visibleColumnNames.IndexOf("MaDonHang");
+        if (maDonHangColumnIndex < 0)
+        {
+            statusMessage = "Column 'Mã đơn hàng' not found in visible columns";
+            return;
+        }
+
+        // Create a sorted list of recipient names and assign index+1 as order code
+        var sortedRecipients = new List<string>(recipientGroups.Keys);
+        sortedRecipients.Sort();
+
+        int codeCount = 0;
+        for (int groupIndex = 0; groupIndex < sortedRecipients.Count; groupIndex++)
+        {
+            string recipientName = sortedRecipients[groupIndex];
+            string orderCode = (groupIndex + 1).ToString();
+            var rowIndices = recipientGroups[recipientName];
+
+            foreach (var rowIndex in rowIndices)
+            {
+                if (rowIndex < gridData.Count && maDonHangColumnIndex < gridData[rowIndex].Count)
+                {
+                    gridData[rowIndex][maDonHangColumnIndex] = orderCode;
+                    codeCount++;
+                }
+            }
+        }
+
+        statusMessage = $"Auto-generated {codeCount} order codes based on {sortedRecipients.Count} recipient groups";
+        Repaint();
+    }
+
+    private void SortByOrderCode()
+    {
+        if (gridData.Count < 2)
+        {
+            statusMessage = "Load data first";
+            return;
+        }
+
+        int maDonHangColumnIndex = visibleColumnNames.IndexOf("MaDonHang");
+        if (maDonHangColumnIndex < 0)
+        {
+            statusMessage = "Column 'Mã đơn hàng' not found in visible columns";
+            return;
+        }
+
+        // Get header row
+        var headerRow = gridData[0];
+        
+        // Get data rows (skip header)
+        var dataRows = new List<List<string>>();
+        for (int i = 1; i < gridData.Count; i++)
+        {
+            dataRows.Add(gridData[i]);
+        }
+
+        // Sort data rows by order code (MaDonHang)
+        dataRows.Sort((a, b) =>
+        {
+            string codeA = maDonHangColumnIndex < a.Count ? a[maDonHangColumnIndex] : "";
+            string codeB = maDonHangColumnIndex < b.Count ? b[maDonHangColumnIndex] : "";
+
+            // Try to parse as numbers for numeric sorting
+            if (int.TryParse(codeA, out int numA) && int.TryParse(codeB, out int numB))
+            {
+                return numA.CompareTo(numB);
+            }
+
+            // Fall back to string comparison
+            return codeA.CompareTo(codeB);
+        });
+
+        // Rebuild grid
+        gridData.Clear();
+        gridData.Add(headerRow);
+        gridData.AddRange(dataRows);
+
+        statusMessage = $"Sorted {dataRows.Count} rows by order code";
+        Repaint();
+    }
+
+    private void AutoFillPhoneAndAddress()
+    {
+        if (recipientGroups.Count == 0)
+        {
+            statusMessage = "Group by Recipient first";
+            return;
+        }
+
+        int phoneColumnIndex = visibleColumnNames.IndexOf("SoDienThoai");
+        int addressColumnIndex = visibleColumnNames.IndexOf("DiaChiChiTiet");
+
+        if (phoneColumnIndex < 0 || addressColumnIndex < 0)
+        {
+            statusMessage = "Columns 'Số điện thoại' or 'Địa chỉ chi tiết' not found";
+            return;
+        }
+
+        int filledCount = 0;
+        var conflicts = new List<string>();
+
+        foreach (var groupEntry in recipientGroups)
+        {
+            string recipientName = groupEntry.Key;
+            var rowIndices = groupEntry.Value;
+
+            // Find non-empty phone and address in this group
+            string groupPhone = "";
+            string groupAddress = "";
+            var phoneSources = new HashSet<string>();
+            var addressSources = new HashSet<string>();
+
+            foreach (var rowIndex in rowIndices)
+            {
+                if (rowIndex < gridData.Count)
+                {
+                    var row = gridData[rowIndex];
+                    string phone = phoneColumnIndex < row.Count ? row[phoneColumnIndex] : "";
+                    string address = addressColumnIndex < row.Count ? row[addressColumnIndex] : "";
+
+                    if (!string.IsNullOrWhiteSpace(phone))
+                    {
+                        if (string.IsNullOrWhiteSpace(groupPhone))
+                            groupPhone = phone;
+                        phoneSources.Add(phone);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(address))
+                    {
+                        if (string.IsNullOrWhiteSpace(groupAddress))
+                            groupAddress = address;
+                        addressSources.Add(address);
+                    }
+                }
+            }
+
+            // Check for conflicts
+            if (phoneSources.Count > 1)
+            {
+                conflicts.Add($"[{recipientName}] Multiple phone numbers: {string.Join(", ", phoneSources)}");
+            }
+
+            if (addressSources.Count > 1)
+            {
+                conflicts.Add($"[{recipientName}] Multiple addresses: {string.Join(", ", addressSources)}");
+            }
+
+            // Fill missing values in group
+            if (!string.IsNullOrWhiteSpace(groupPhone) || !string.IsNullOrWhiteSpace(groupAddress))
+            {
+                foreach (var rowIndex in rowIndices)
+                {
+                    if (rowIndex < gridData.Count)
+                    {
+                        var row = gridData[rowIndex];
+                        string currentPhone = phoneColumnIndex < row.Count ? row[phoneColumnIndex] : "";
+                        string currentAddress = addressColumnIndex < row.Count ? row[addressColumnIndex] : "";
+
+                        // Fill phone if empty
+                        if (string.IsNullOrWhiteSpace(currentPhone) && !string.IsNullOrWhiteSpace(groupPhone))
+                        {
+                            gridData[rowIndex][phoneColumnIndex] = groupPhone;
+                            filledCount++;
+                        }
+
+                        // Fill address if empty
+                        if (string.IsNullOrWhiteSpace(currentAddress) && !string.IsNullOrWhiteSpace(groupAddress))
+                        {
+                            gridData[rowIndex][addressColumnIndex] = groupAddress;
+                            filledCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (conflicts.Count > 0)
+        {
+            statusMessage = $"Filled {filledCount} fields. *** WARNING *** {conflicts.Count} conflicts found - check console";
+            Debug.LogWarning($"Auto-fill conflicts detected:\n{string.Join("\n", conflicts)}");
+        }
+        else
+        {
+            statusMessage = $"Auto-filled {filledCount} phone and address fields in {recipientGroups.Count} groups";
+        }
+
         Repaint();
     }
 
