@@ -12,7 +12,7 @@ public class ExcelManagerWindow : EditorWindow
     
     // UI State
     private List<List<string>> gridData = new List<List<string>>();
-    private List<string> columnNames = new List<string>();
+    private List<string> visibleColumnNames = new List<string>();
     private float cellWidth = 120f;
     private float cellHeight = 18f;
 
@@ -52,7 +52,7 @@ public class ExcelManagerWindow : EditorWindow
         if (GUILayout.Button("Reload", GUILayout.Height(30)))
         {
             gridData.Clear();
-            columnNames.Clear();
+            visibleColumnNames.Clear();
             statusMessage = "Cleared";
             LoadData();
         }
@@ -86,7 +86,7 @@ public class ExcelManagerWindow : EditorWindow
         // Grid section
         if (gridData.Count > 0)
         {
-            GUILayout.Label($"Data ({gridData.Count - 1} rows, {columnNames.Count} columns)", EditorStyles.boldLabel);
+            GUILayout.Label($"Data ({gridData.Count - 1} rows, {visibleColumnNames.Count} columns)", EditorStyles.boldLabel);
             DrawGrid();
         }
     }
@@ -102,7 +102,7 @@ public class ExcelManagerWindow : EditorWindow
         {
             EditorGUILayout.BeginHorizontal();
 
-            for (int col = 0; col < columnNames.Count; col++)
+            for (int col = 0; col < visibleColumnNames.Count; col++)
             {
                 string value = col < gridData[row].Count ? gridData[row][col] : "";
                 
@@ -130,6 +130,10 @@ public class ExcelManagerWindow : EditorWindow
 
     private void LoadData()
     {
+        // Clear old data first
+        gridData.Clear();
+        visibleColumnNames.Clear();
+        
         isLoading = true;
         statusMessage = "Loading...";
         
@@ -163,16 +167,21 @@ public class ExcelManagerWindow : EditorWindow
     private void PopulateGridFromOrders(OrderData[] orders)
     {
         gridData.Clear();
-        columnNames.Clear();
-
-        // Get column names
-        columnNames = new List<string>(OrderData.ColumnMapping.Keys);
+        visibleColumnNames.Clear();
 
         // Header row
         var headerRow = new List<string>();
-        foreach (var colName in columnNames)
+        foreach (var kvp in OrderData.ColumnMapping)
         {
-            headerRow.Add(OrderData.GetDisplayName(colName));
+            string fieldName = kvp.Key;
+            string displayName = kvp.Value;
+            
+            // Kiểm tra visibility từ ExcelConfig
+            if (excelConfig.columnVisibility.IsVisible(fieldName))
+            {
+                visibleColumnNames.Add(fieldName);
+                headerRow.Add(displayName);
+            }
         }
         gridData.Add(headerRow);
 
@@ -180,9 +189,9 @@ public class ExcelManagerWindow : EditorWindow
         foreach (var order in orders)
         {
             var dataRow = new List<string>();
-            foreach (var colName in columnNames)
+            foreach (var fieldName in visibleColumnNames)
             {
-                var field = typeof(OrderData).GetField(colName);
+                var field = typeof(OrderData).GetField(fieldName);
                 var value = field?.GetValue(order)?.ToString() ?? "";
                 dataRow.Add(value);
             }
@@ -199,7 +208,7 @@ public class ExcelManagerWindow : EditorWindow
         }
 
         var newRow = new List<string>();
-        for (int i = 0; i < columnNames.Count; i++)
+        for (int i = 0; i < visibleColumnNames.Count; i++)
         {
             newRow.Add("");
         }
@@ -209,6 +218,14 @@ public class ExcelManagerWindow : EditorWindow
 
     private void PushData()
     {
+        // Auto-load if not loaded yet
+        if (visibleColumnNames.Count == 0 || gridData.Count < 1)
+        {
+            statusMessage = "Loading data first...";
+            LoadData();
+            return;
+        }
+        
         if (gridData.Count < 2)
         {
             statusMessage = "No data to push";
@@ -218,24 +235,58 @@ public class ExcelManagerWindow : EditorWindow
         // Convert grid back to OrderData array
         var orders = new List<OrderData>();
 
+        Debug.Log($"Grid data count: {gridData.Count}, Visible columns: {visibleColumnNames.Count}");
+        
+        // Debug: print column names
+        string colNames = "Columns: ";
+        foreach (var col in visibleColumnNames)
+        {
+            colNames += col + ", ";
+        }
+        Debug.Log(colNames);
+
         for (int row = 1; row < gridData.Count; row++)
         {
             var order = new OrderData();
             var dataRow = gridData[row];
-
-            for (int col = 0; col < columnNames.Count && col < dataRow.Count; col++)
+            
+            // Debug: print row data
+            string rowData = $"Row {row}: ";
+            foreach (var cell in dataRow)
             {
-                var colName = columnNames[col];
+                rowData += $"[{cell}] ";
+            }
+            Debug.Log(rowData);
+
+            for (int col = 0; col < visibleColumnNames.Count && col < dataRow.Count; col++)
+            {
+                var fieldName = visibleColumnNames[col];
                 var value = dataRow[col];
-                var field = typeof(OrderData).GetField(colName);
+                var field = typeof(OrderData).GetField(fieldName);
                 if (field != null)
                 {
                     field.SetValue(order, value);
                 }
             }
 
-            // Only add rows with at least MaDonHang filled
-            if (!string.IsNullOrEmpty(order.MaDonHang))
+            // Add row if it has ANY data filled (not completely empty)
+            Debug.Log($"Row {row} - MaDonHang: '{order.MaDonHang}'");
+            bool hasAnyData = false;
+            foreach (var col in visibleColumnNames)
+            {
+                var field = typeof(OrderData).GetField(col);
+                if (field != null)
+                {
+                    var value = field.GetValue(order)?.ToString();
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        hasAnyData = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (hasAnyData)
             {
                 orders.Add(order);
             }
@@ -243,7 +294,8 @@ public class ExcelManagerWindow : EditorWindow
 
         if (orders.Count == 0)
         {
-            statusMessage = "No valid orders to push";
+            statusMessage = "No valid orders to push (no MaDonHang found)";
+            Debug.LogError("PushData error: No valid orders. Check MaDonHang field!");
             return;
         }
 

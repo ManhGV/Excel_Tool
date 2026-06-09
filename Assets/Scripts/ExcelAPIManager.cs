@@ -243,14 +243,14 @@ public class ExcelAPIManager : MonoBehaviour
     {
         isLoading = true;
 
-        // Tao JSON
+        // Tao JSON manually (JsonUtility khong support List<Dictionary>)
         List<Dictionary<string, object>> dataList = new List<Dictionary<string, object>>();
         foreach (var order in orders)
         {
             dataList.Add(order.ToDictionary());
         }
 
-        string json = JsonUtility.ToJson(new { data = dataList });
+        string json = BuildJsonFromDictionaries(dataList);
         Debug.Log($"Pushing data: {json.Substring(0, Mathf.Min(200, json.Length))}...");
 
         using (UnityWebRequest www = new UnityWebRequest(apiUrl, "POST"))
@@ -265,6 +265,8 @@ public class ExcelAPIManager : MonoBehaviour
             if (www.result == UnityWebRequest.Result.Success)
             {
                 Debug.Log("Data pushed successfully!");
+                // Wait for Google Sheets to sync (thêm delay để sheet update)
+                System.Threading.Thread.Sleep(1500); // 1.5 seconds
                 onComplete?.Invoke(true);
             }
             else
@@ -276,6 +278,57 @@ public class ExcelAPIManager : MonoBehaviour
         }
 
         isLoading = false;
+    }
+
+    private string BuildJsonFromDictionaries(List<Dictionary<string, object>> dataList)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("[");
+        
+        for (int i = 0; i < dataList.Count; i++)
+        {
+            var dict = dataList[i];
+            sb.Append("{");
+            
+            var keys = new List<string>(dict.Keys);
+            for (int j = 0; j < keys.Count; j++)
+            {
+                string key = keys[j];
+                object value = dict[key];
+                
+                sb.Append("\"");
+                sb.Append(EscapeJsonString(key));
+                sb.Append("\":");
+                
+                // Escape string values
+                sb.Append("\"");
+                sb.Append(EscapeJsonString(value?.ToString() ?? ""));
+                sb.Append("\"");
+                
+                if (j < keys.Count - 1)
+                    sb.Append(",");
+            }
+            
+            sb.Append("}");
+            if (i < dataList.Count - 1)
+                sb.Append(",");
+        }
+        
+        sb.Append("]");
+        return sb.ToString();
+    }
+
+    private string EscapeJsonString(string str)
+    {
+        if (string.IsNullOrEmpty(str))
+            return "";
+        
+        return str
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")
+            .Replace("\t", "\\t");
     }
 
     public bool IsLoading => isLoading;

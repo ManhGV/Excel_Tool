@@ -14,6 +14,10 @@ public class ExcelConfig : ScriptableObject
     [SerializeField]
     public string spreadsheetId = "1MdS28yqxIcqjSvjijYN-4UoLv23fMkQd";
 
+    [SerializeField]
+    [Tooltip("Tích/bỏ tích để hiển thị/ẩn từng cột trong tool")]
+    public OrderDataVisibility columnVisibility = new OrderDataVisibility();
+
     public string GetDeploymentUrl()
     {
         return deploymentUrl;

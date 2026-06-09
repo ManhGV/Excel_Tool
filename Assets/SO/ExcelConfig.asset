@@ -12,6 +12,37 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8c5d19dd04436af4a9bbfb4906f05d30, type: 3}
   m_Name: ExcelConfig
   m_EditorClassIdentifier: 
-  deploymentId: AKfycbw1fD7RSyMrpaapBHJV43OqVPBLZQn-RMdHueMWPQ1QfP2QWFWSw2Cz9efDwYog_GWDjQ
-  deploymentUrl: https://script.google.com/macros/s/AKfycbw1fD7RSyMrpaapBHJV43OqVPBLZQn-RMdHueMWPQ1QfP2QWFWSw2Cz9efDwYog_GWDjQ/exec
-  spreadsheetId: 1MdS28yqxIcqjSvjijYN-4UoLv23fMkQd
+  deploymentId: AKfycbw1VehLrbuxL9ldTLyEYCyoVS7xxxHkrn-QqysHAhUm68W3EFuH4ZyzdHh641uj1Hh2Dg
+  deploymentUrl: https://script.google.com/macros/s/AKfycbw1VehLrbuxL9ldTLyEYCyoVS7xxxHkrn-QqysHAhUm68W3EFuH4ZyzdHh641uj1Hh2Dg/exec
+  spreadsheetId: 1SPfEnLb8teAd6aWom5YIyD_WewAmgXAjMeTdmpn09Uo
+  columnVisibility:
+    MaDonHang: 1
+    TenNguoiNhan: 1
+    SoDienThoai: 1
+    TinhThanhPho: 0
+    QuanHuyen: 0
+    XaPhuong: 0
+    DiaChiChiTiet: 1
+    LuuYVeDiaChi: 0
+    MaBuuChinh: 0
+    TenSanPham: 1
+    SoLuong: 1
+    GiaTien: 1
+    TongCanNang: 1
+    ChieuDai: 0
+    ChieuRong: 0
+    ChieuCao: 0
+    MaKhachHang: 0
+    GiaTriDonHang: 1
+    GiaoHangMotPhan: 1
+    ChoPhepThuHang: 1
+    ChoXemHangKhongChoThu: 1
+    ThuPhiTuChoiNhanHang: 0
+    PhiTuChoiNhanHangCanThu: 0
+    ThuCOD: 1
+    SoTienCOD: 1
+    BuuGuiGiaTriCao: 0
+    HinhThucThanhToan: 1
+    LuuYGiaoHang: 0
+    NhacNhoDienDungSoTienCOD: 0
+    DonChiHoanThanhNeuODuoiHien: 0

@@ -1,0 +1,27 @@
+📋 Tóm Tắt Project Excel Manager
+
+1. Architecture:
+•  Google Apps Script: Backend xử lý GET (load) và POST (push) dữ liệu từ Google Sheets
+•  Unity Editor Window: Tool giao diện để load, edit, add row, push data
+•  ExcelConfig: ScriptableObject lưu URL deployment và cấu hình cột hiển thị
+
+2. Tính năng chính:
+•  Load 27 đơn hàng từ Google Sheets vào bảng editable
+•  Toggle hiển thị/ẩn cột qua OrderDataVisibility (bool field cho mỗi cột)
+•  Add row mới và edit dữ liệu trực tiếp trong tool
+•  Push dữ liệu lên Google Sheets (update row-by-row, giữ định dạng)
+
+3. Dữ liệu:
+•  OrderData: 30 fields (tiếng Việt không dấu, mapping sang tiếng Việt có dấu để hiển thị)
+•  JSON parser tự viết xử lý dữ liệu từ Google Apps Script
+
+4. Workflow hoàn chỉnh:
+•  Load → hiển thị 27 orders, lọc cột theo visibility
+•  Edit trực tiếp trong bảng + add rows
+•  Push → cập nhật Google Sheets (row-by-row, giữ format)
+•  Reload → load lại để verify
+
+5. Mở rộng dễ dàng:
+•  Thay URL trong ExcelConfig → dùng cho sheet khác
+•  Toggle checkbox trong OrderDataVisibility → ẩn/hiện cột
+•  Script Google hỗ trợ thêm cột/sheet mới dễ dàng
