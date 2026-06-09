@@ -84,6 +84,11 @@ public class ExcelManagerWindow : EditorWindow
             bulkFillValue = "";
         }
 
+        if (GUILayout.Button("Sort Phone", GUILayout.Height(30)))
+        {
+            SortRowsWithoutPhoneToBottom();
+        }
+
         GUI.enabled = true;
 
         EditorGUILayout.EndHorizontal();
@@ -462,6 +467,73 @@ public class ExcelManagerWindow : EditorWindow
         }
 
         statusMessage = $"Applied '{bulkFillValue}' to {fillCount} rows in column '{OrderData.GetDisplayName(visibleColumnNames[bulkFillColumnIndex])}'";
+        Repaint();
+    }
+
+    private void SortRowsWithoutPhoneToBottom()
+    {
+        if (gridData.Count < 2)
+        {
+            statusMessage = "Load data first";
+            return;
+        }
+
+        int phoneColumnIndex = visibleColumnNames.IndexOf("SoDienThoai");
+        int addressColumnIndex = visibleColumnNames.IndexOf("DiaChiChiTiet");
+        
+        if (phoneColumnIndex < 0)
+        {
+            statusMessage = "Column 'Số điện thoại' not found in visible columns";
+            return;
+        }
+        
+        if (addressColumnIndex < 0)
+        {
+            statusMessage = "Column 'Địa chỉ chi tiết' not found in visible columns";
+            return;
+        }
+
+        // Category 1: Has both phone and address
+        var rowsWithBoth = new List<List<string>>();
+        // Category 2: Has address but no phone
+        var rowsWithAddressOnly = new List<List<string>>();
+        // Category 3: No address (regardless of phone)
+        var rowsWithoutAddress = new List<List<string>>();
+
+        for (int i = 1; i < gridData.Count; i++)
+        {
+            var row = gridData[i];
+            string phone = phoneColumnIndex < row.Count ? row[phoneColumnIndex] : "";
+            string address = addressColumnIndex < row.Count ? row[addressColumnIndex] : "";
+
+            bool hasPhone = !string.IsNullOrWhiteSpace(phone);
+            bool hasAddress = !string.IsNullOrWhiteSpace(address);
+
+            if (!hasAddress)
+            {
+                // No address -> bottom
+                rowsWithoutAddress.Add(row);
+            }
+            else if (hasAddress && !hasPhone)
+            {
+                // Has address but no phone -> middle
+                rowsWithAddressOnly.Add(row);
+            }
+            else if (hasAddress && hasPhone)
+            {
+                // Has both -> top
+                rowsWithBoth.Add(row);
+            }
+        }
+
+        var headerRow = gridData[0];
+        gridData.Clear();
+        gridData.Add(headerRow);
+        gridData.AddRange(rowsWithBoth);
+        gridData.AddRange(rowsWithAddressOnly);
+        gridData.AddRange(rowsWithoutAddress);
+
+        statusMessage = $"Sorted: {rowsWithBoth.Count} with both | {rowsWithAddressOnly.Count} address only | {rowsWithoutAddress.Count} no address";
         Repaint();
     }
 
