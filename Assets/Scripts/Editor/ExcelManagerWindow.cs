@@ -15,6 +15,11 @@ public class ExcelManagerWindow : EditorWindow
     private List<string> visibleColumnNames = new List<string>();
     private float cellWidth = 120f;
     private float cellHeight = 18f;
+    
+    // Bulk fill state
+    private int bulkFillColumnIndex = -1;
+    private string bulkFillValue = "";
+    private bool showBulkFillPanel = false;
 
     [MenuItem("Tools/Excel Manager")]
     public static void ShowWindow()
@@ -72,9 +77,61 @@ public class ExcelManagerWindow : EditorWindow
             FormatAllAddresses();
         }
 
+        if (GUILayout.Button("Bulk Fill", GUILayout.Height(30)))
+        {
+            showBulkFillPanel = !showBulkFillPanel;
+            bulkFillColumnIndex = -1;
+            bulkFillValue = "";
+        }
+
         GUI.enabled = true;
 
         EditorGUILayout.EndHorizontal();
+        
+        // Bulk Fill Panel
+        if (showBulkFillPanel)
+        {
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Bulk Fill Column", EditorStyles.boldLabel);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            
+            // Column selector
+            if (visibleColumnNames.Count > 0)
+            {
+                string[] columnDisplayNames = new string[visibleColumnNames.Count];
+                for (int i = 0; i < visibleColumnNames.Count; i++)
+                {
+                    columnDisplayNames[i] = OrderData.GetDisplayName(visibleColumnNames[i]);
+                }
+                
+                bulkFillColumnIndex = EditorGUILayout.Popup("Select Column", bulkFillColumnIndex, columnDisplayNames);
+                
+                // Value input
+                EditorGUILayout.LabelField("Value");
+                bulkFillValue = EditorGUILayout.TextArea(bulkFillValue, GUILayout.Height(60));
+                
+                // Apply button
+                EditorGUILayout.Space();
+                if (GUILayout.Button("Apply to All Rows", GUILayout.Height(30)))
+                {
+                    if (bulkFillColumnIndex >= 0 && !string.IsNullOrEmpty(bulkFillValue))
+                    {
+                        ApplyBulkFill();
+                        showBulkFillPanel = false;
+                    }
+                    else
+                    {
+                        statusMessage = "Please select a column and enter a value";
+                    }
+                }
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("Load data first", MessageType.Warning);
+            }
+            
+            EditorGUILayout.EndVertical();
+        }
 
         EditorGUILayout.Space();
 
@@ -375,6 +432,36 @@ public class ExcelManagerWindow : EditorWindow
         }
 
         statusMessage = $"Formatted {formattedCount} addresses successfully!";
+        Repaint();
+    }
+
+    private void ApplyBulkFill()
+    {
+        if (gridData.Count < 2)
+        {
+            statusMessage = "Load data first";
+            return;
+        }
+
+        if (bulkFillColumnIndex < 0 || bulkFillColumnIndex >= visibleColumnNames.Count)
+        {
+            statusMessage = "Invalid column selected";
+            return;
+        }
+
+        int fillCount = 0;
+        // Apply value to all data rows (skip header at index 0)
+        for (int i = 1; i < gridData.Count; i++)
+        {
+            var row = gridData[i];
+            if (bulkFillColumnIndex < row.Count)
+            {
+                gridData[i][bulkFillColumnIndex] = bulkFillValue;
+                fillCount++;
+            }
+        }
+
+        statusMessage = $"Applied '{bulkFillValue}' to {fillCount} rows in column '{OrderData.GetDisplayName(visibleColumnNames[bulkFillColumnIndex])}'";
         Repaint();
     }
 
