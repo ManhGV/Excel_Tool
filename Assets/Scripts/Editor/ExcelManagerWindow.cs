@@ -67,6 +67,11 @@ public class ExcelManagerWindow : EditorWindow
             PushData();
         }
 
+        if (GUILayout.Button("Format Address", GUILayout.Height(30)))
+        {
+            FormatAllAddresses();
+        }
+
         GUI.enabled = true;
 
         EditorGUILayout.EndHorizontal();
@@ -333,6 +338,44 @@ public class ExcelManagerWindow : EditorWindow
                 Repaint();
             }
         );
+    }
+
+    private void FormatAllAddresses()
+    {
+        if (gridData.Count < 2)
+        {
+            statusMessage = "Load data first";
+            return;
+        }
+
+        // Find the index of DiaChiChiTiet column
+        int diaChiChiTietIndex = visibleColumnNames.IndexOf("DiaChiChiTiet");
+
+        if (diaChiChiTietIndex < 0)
+        {
+            statusMessage = "Column 'Địa chỉ chi tiết' not found in visible columns";
+            return;
+        }
+
+        int formattedCount = 0;
+        // Process all data rows (skip header at index 0)
+        for (int i = 1; i < gridData.Count; i++)
+        {
+            var row = gridData[i];
+            if (diaChiChiTietIndex < row.Count)
+            {
+                string originalAddress = row[diaChiChiTietIndex];
+                if (!string.IsNullOrWhiteSpace(originalAddress))
+                {
+                    string formattedAddress = AddressFormatter.FormatAddress(originalAddress);
+                    gridData[i][diaChiChiTietIndex] = formattedAddress;
+                    formattedCount++;
+                }
+            }
+        }
+
+        statusMessage = $"Formatted {formattedCount} addresses successfully!";
+        Repaint();
     }
 
     private void OnInspectorUpdate()

@@ -11,6 +11,7 @@ public class ExcelUIManager : MonoBehaviour
     [SerializeField] private Button loadButton;
     [SerializeField] private Button pushButton;
     [SerializeField] private Button addRowButton;
+    [SerializeField] private Button formatAddressButton;
     [SerializeField] private TextMeshProUGUI statusText;
     [SerializeField] private VerticalLayoutGroup gridLayout;
 
@@ -29,6 +30,8 @@ public class ExcelUIManager : MonoBehaviour
         loadButton.onClick.AddListener(LoadDataFromSheet);
         pushButton.onClick.AddListener(PushDataToSheet);
         addRowButton.onClick.AddListener(AddNewRow);
+        if (formatAddressButton != null)
+            formatAddressButton.onClick.AddListener(FormatAllAddresses);
 
         // Initialize API
         if (ExcelAPIManager.Instance != null)
@@ -256,6 +259,47 @@ public class ExcelUIManager : MonoBehaviour
                 pushButton.interactable = true;
             }
         );
+    }
+
+    /// <summary>
+    /// Format all addresses in the "Địa chỉ chi tiết" (DiaChiChiTiet) column
+    /// </summary>
+    private void FormatAllAddresses()
+    {
+        if (gridInputs.Count < 2)
+        {
+            SetStatus("Load data first");
+            return;
+        }
+
+        // Find the index of DiaChiChiTiet column
+        var columnNames = new System.Collections.Generic.List<string>(OrderData.ColumnMapping.Keys);
+        int diaChiChiTietIndex = columnNames.IndexOf("DiaChiChiTiet");
+
+        if (diaChiChiTietIndex < 0)
+        {
+            SetStatus("Column 'Địa chỉ chi tiết' not found");
+            return;
+        }
+
+        int formattedCount = 0;
+        // Process all data rows (skip header at index 0)
+        for (int i = 1; i < gridInputs.Count; i++)
+        {
+            var row = gridInputs[i];
+            if (diaChiChiTietIndex < row.Count)
+            {
+                string originalAddress = row[diaChiChiTietIndex].text;
+                if (!string.IsNullOrWhiteSpace(originalAddress))
+                {
+                    string formattedAddress = AddressFormatter.FormatAddress(originalAddress);
+                    row[diaChiChiTietIndex].text = formattedAddress;
+                    formattedCount++;
+                }
+            }
+        }
+
+        SetStatus($"Formatted {formattedCount} addresses successfully!");
     }
 
     private void SetStatus(string message)
